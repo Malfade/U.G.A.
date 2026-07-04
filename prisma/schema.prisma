@@ -1,0 +1,288 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Faction {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  emblem      String?
+  description String?
+  foundedDate String?
+  colorScheme String   @default("{}")
+  terminology String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  characters   Character[]
+  factionViews FactionView[]
+}
+
+model Character {
+  id          String   @id @default(cuid())
+  name        String
+  callsign    String?
+  birthDate   String?
+  gender      String?
+  age         Int?
+  height      String?
+  weight      String?
+  rank        String?
+  status      String?
+  description String?
+  biography   String?
+  quotes      String?
+  abilities   String?
+  inventory   String?
+  image       String?
+  accessLevel Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  factionId String?
+  faction   Faction? @relation(fields: [factionId], references: [id])
+
+  relationshipsA    Relationship[]     @relation("CharacterA")
+  relationshipsB    Relationship[]     @relation("CharacterB")
+  characterEvents   CharacterEvent[]
+  characterDocuments CharacterDocument[]
+  factionViews      FactionView[]      @relation("CharacterFactionViews")
+  media             Media[]            @relation("CharacterMedia")
+  notes             Note[]
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  emblem      String?
+  description String?
+  foundedDate String?
+  hierarchy   String?
+  goals       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  factionViews FactionView[] @relation("OrgFactionViews")
+  media        Media[]       @relation("OrgMedia")
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("city")
+  coordX      Float?
+  coordY      Float?
+  population  String?
+  description String?
+  accessLevel Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events       EventLocation[]
+  factionViews FactionView[]   @relation("LocationFactionViews")
+  media        Media[]         @relation("LocationMedia")
+}
+
+model Event {
+  id           String   @id @default(cuid())
+  name         String
+  date         String?
+  coordX       Float?
+  coordY       Float?
+  cause        String?
+  consequences String?
+  description  String?
+  accessLevel  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  eventLocations  EventLocation[]
+  characterEvents CharacterEvent[]
+  eventDocuments  EventDocument[]
+  factionViews    FactionView[]    @relation("EventFactionViews")
+  media           Media[]          @relation("EventMedia")
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  title         String
+  type          String   @default("report")
+  content       String?
+  accessLevel   Int      @default(0)
+  damagePercent Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  characterDocuments CharacterDocument[]
+  eventDocuments     EventDocument[]
+  argLocks           ARGLock[]
+  argKeysHidden      ARGKey[]       @relation("KeyHiddenIn")
+  factionViews       FactionView[]  @relation("DocFactionViews")
+  media              Media[]        @relation("DocMedia")
+}
+
+model Relationship {
+  id          String   @id @default(cuid())
+  type        String   @default("unknown")
+  trustLevel  Int      @default(50)
+  startDate   String?
+  endDate     String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  characterAId String
+  characterA   Character @relation("CharacterA", fields: [characterAId], references: [id], onDelete: Cascade)
+  characterBId String
+  characterB   Character @relation("CharacterB", fields: [characterBId], references: [id], onDelete: Cascade)
+
+  history      RelationshipHistory[]
+  factionViews FactionView[] @relation("RelFactionViews")
+}
+
+model RelationshipHistory {
+  id          String @id @default(cuid())
+  year        String
+  status      String
+  description String?
+
+  relationshipId String
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+}
+
+model FactionView {
+  id         String @id @default(cuid())
+  entityType String
+  entityId   String
+  content    String @default("{}")
+
+  factionId String
+  faction   Faction @relation(fields: [factionId], references: [id], onDelete: Cascade)
+
+  characterId    String?
+  character      Character?    @relation("CharacterFactionViews", fields: [characterId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation("OrgFactionViews", fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       Location?     @relation("LocationFactionViews", fields: [locationId], references: [id], onDelete: Cascade)
+  eventId        String?
+  event          Event?        @relation("EventFactionViews", fields: [eventId], references: [id], onDelete: Cascade)
+  documentId     String?
+  document       Document?     @relation("DocFactionViews", fields: [documentId], references: [id], onDelete: Cascade)
+  relationshipId String?
+  relationship   Relationship? @relation("RelFactionViews", fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, factionId])
+}
+
+model EntityLink {
+  id         String @id @default(cuid())
+  sourceType String
+  sourceId   String
+  targetType String
+  targetId   String
+
+  @@unique([sourceType, sourceId, targetType, targetId])
+}
+
+model ARGLock {
+  id          String  @id @default(cuid())
+  keyRequired String
+  hint        String?
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model ARGKey {
+  id   String @id @default(cuid())
+  code String @unique
+
+  hiddenInDocumentId String
+  hiddenInDocument   Document @relation("KeyHiddenIn", fields: [hiddenInDocumentId], references: [id], onDelete: Cascade)
+}
+
+model ObjectiveTruth {
+  id         String @id @default(cuid())
+  entityType String
+  entityId   String
+  content    String
+
+  @@unique([entityType, entityId])
+}
+
+model Media {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  type       String   @default("image")
+  url        String
+  caption    String?
+  createdAt  DateTime @default(now())
+
+  characterId    String?
+  character      Character?    @relation("CharacterMedia", fields: [characterId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation("OrgMedia", fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       Location?     @relation("LocationMedia", fields: [locationId], references: [id], onDelete: Cascade)
+  eventId        String?
+  event          Event?        @relation("EventMedia", fields: [eventId], references: [id], onDelete: Cascade)
+  documentId     String?
+  document       Document?     @relation("DocMedia", fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model CharacterEvent {
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, eventId])
+}
+
+model CharacterDocument {
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  documentId  String
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, documentId])
+}
+
+model EventLocation {
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, locationId])
+}
+
+model EventDocument {
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, documentId])
+}
+
+model Note {
+  id          String    @id @default(cuid())
+  content     String
+  author      String?
+  createdAt   DateTime  @default(now())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+}
+
+model AdminUser {
+  id       String @id @default(cuid())
+  username String @unique
+  password String
+}
