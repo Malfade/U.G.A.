@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   description: "Интерактивный архив мира — v7.4",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({
   children,
 }: Readonly<{

@@ -1,7 +1,17 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+function revalidateArchive() {
+  revalidatePath("/", "layout");
+}
+
+function emptyToNull(value: FormDataEntryValue | null): string | null {
+  if (!value || value === "") return null;
+  return String(value);
+}
 
 export async function createCharacter(formData: FormData) {
   const data = {
@@ -17,11 +27,12 @@ export async function createCharacter(formData: FormData) {
     description: (formData.get("description") as string) || null,
     biography: (formData.get("biography") as string) || null,
     abilities: (formData.get("abilities") as string) || null,
-    factionId: (formData.get("factionId") as string) || null,
+    factionId: emptyToNull(formData.get("factionId")),
     accessLevel: parseInt((formData.get("accessLevel") as string) || "0"),
   };
 
   await prisma.character.create({ data });
+  revalidateArchive();
   redirect("/admin/characters");
 }
 
@@ -39,16 +50,18 @@ export async function updateCharacter(id: string, formData: FormData) {
     description: (formData.get("description") as string) || null,
     biography: (formData.get("biography") as string) || null,
     abilities: (formData.get("abilities") as string) || null,
-    factionId: (formData.get("factionId") as string) || null,
+    factionId: emptyToNull(formData.get("factionId")),
     accessLevel: parseInt((formData.get("accessLevel") as string) || "0"),
   };
 
   await prisma.character.update({ where: { id }, data });
+  revalidateArchive();
   redirect("/admin/characters");
 }
 
 export async function deleteCharacter(id: string) {
   await prisma.character.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/characters");
 }
 
@@ -63,6 +76,7 @@ export async function createEvent(formData: FormData) {
       accessLevel: parseInt((formData.get("accessLevel") as string) || "0"),
     },
   });
+  revalidateArchive();
   redirect("/admin/events");
 }
 
@@ -78,6 +92,7 @@ export async function updateEvent(id: string, formData: FormData) {
       accessLevel: parseInt((formData.get("accessLevel") as string) || "0"),
     },
   });
+  revalidateArchive();
   redirect("/admin/events");
 }
 
@@ -91,6 +106,7 @@ export async function createDocument(formData: FormData) {
       damagePercent: parseInt((formData.get("damagePercent") as string) || "0"),
     },
   });
+  revalidateArchive();
   redirect("/admin/documents");
 }
 
@@ -105,6 +121,7 @@ export async function updateDocument(id: string, formData: FormData) {
       damagePercent: parseInt((formData.get("damagePercent") as string) || "0"),
     },
   });
+  revalidateArchive();
   redirect("/admin/documents");
 }
 
@@ -118,6 +135,7 @@ export async function createOrganization(formData: FormData) {
       goals: (formData.get("goals") as string) || null,
     },
   });
+  revalidateArchive();
   redirect("/admin/organizations");
 }
 
@@ -132,11 +150,13 @@ export async function updateOrganization(id: string, formData: FormData) {
       goals: (formData.get("goals") as string) || null,
     },
   });
+  revalidateArchive();
   redirect("/admin/organizations");
 }
 
 export async function deleteOrganization(id: string) {
   await prisma.organization.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/organizations");
 }
 
@@ -152,6 +172,7 @@ export async function createLocation(formData: FormData) {
       accessLevel: parseInt((formData.get("accessLevel") as string) || "0"),
     },
   });
+  revalidateArchive();
   redirect("/admin/locations");
 }
 
@@ -168,21 +189,25 @@ export async function updateLocation(id: string, formData: FormData) {
       accessLevel: parseInt((formData.get("accessLevel") as string) || "0"),
     },
   });
+  revalidateArchive();
   redirect("/admin/locations");
 }
 
 export async function deleteLocation(id: string) {
   await prisma.location.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/locations");
 }
 
 export async function deleteEvent(id: string) {
   await prisma.event.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/events");
 }
 
 export async function deleteDocument(id: string) {
   await prisma.document.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/documents");
 }
 
@@ -195,11 +220,13 @@ export async function createNote(formData: FormData) {
       characterId,
     },
   });
+  revalidateArchive();
   redirect(`/admin/characters/${characterId}`);
 }
 
 export async function deleteNote(id: string, characterId: string) {
   await prisma.note.delete({ where: { id } });
+  revalidateArchive();
   redirect(`/admin/characters/${characterId}`);
 }
 
@@ -225,6 +252,7 @@ export async function createFactionView(formData: FormData) {
     create: { entityType, entityId, factionId, content, ...linkFields },
   });
 
+  revalidateArchive();
   redirect(adminEntityUrl(entityType, entityId));
 }
 
@@ -234,6 +262,7 @@ export async function deleteFactionView(
   entityId: string
 ) {
   await prisma.factionView.delete({ where: { id } });
+  revalidateArchive();
   redirect(adminEntityUrl(entityType, entityId));
 }
 
@@ -260,6 +289,7 @@ export async function createFaction(formData: FormData) {
       terminology: (formData.get("terminology") as string) || "{}",
     },
   });
+  revalidateArchive();
   redirect(`/admin/factions/${faction.id}`);
 }
 
@@ -275,11 +305,13 @@ export async function updateFaction(id: string, formData: FormData) {
       terminology: (formData.get("terminology") as string) || "{}",
     },
   });
+  revalidateArchive();
   redirect(`/admin/factions/${id}`);
 }
 
 export async function deleteFaction(id: string) {
   await prisma.faction.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/factions");
 }
 
@@ -333,6 +365,7 @@ export async function createRelationship(formData: FormData) {
     relationship.id,
     formData.get("history") as string | null
   );
+  revalidateArchive();
   redirect("/admin/relationships");
 }
 
@@ -351,10 +384,12 @@ export async function updateRelationship(id: string, formData: FormData) {
   });
 
   await syncRelationshipHistory(id, formData.get("history") as string | null);
+  revalidateArchive();
   redirect(`/admin/relationships/${id}`);
 }
 
 export async function deleteRelationship(id: string) {
   await prisma.relationship.delete({ where: { id } });
+  revalidateArchive();
   redirect("/admin/relationships");
 }
