@@ -2,7 +2,6 @@
 
 import { useLoreStore } from "@/lib/store";
 import { useActiveFaction } from "@/components/layout/FactionProvider";
-import { RedactedText } from "@/components/ui/RedactedText";
 import {
   FactionViewData,
   getExtraFactionFields,
@@ -73,6 +72,9 @@ export function FactionAwareContent({ factionViews, fields, children }: Props) {
 
       {fields.map((field) => {
         const value = resolveFactionField(field.key, field.value, parsed, isObserver);
+        if (isObserver && (value === null || value === undefined || String(value).trim() === "")) {
+          return null;
+        }
         return (
           <div key={field.key} className="border-t border-gray-800 pt-3">
             <h3 className="font-mono text-[10px] text-gray-600 tracking-widest mb-2">
@@ -83,11 +85,17 @@ export function FactionAwareContent({ factionViews, fields, children }: Props) {
                 </span>
               )}
             </h3>
-            <RedactedText
-              value={value}
-              as="p"
-              className={`text-sm text-gray-300 leading-relaxed ${field.multiline ? "whitespace-pre-wrap" : ""}`}
-            />
+            {value === null || value === undefined || String(value).trim() === "" ? (
+              <span className="redacted-dark inline-block px-1 rounded text-xs tracking-widest">
+                ████████████
+              </span>
+            ) : (
+              <p
+                className={`text-sm text-gray-300 leading-relaxed ${field.multiline ? "whitespace-pre-wrap" : ""}`}
+              >
+                {value}
+              </p>
+            )}
           </div>
         );
       })}
@@ -132,12 +140,14 @@ export function FactionAwareStatus({
   const status = resolveFactionField("status", baseStatus, parsed, isObserver);
 
   if (!status && !isObserver && selectedFactionId) {
-    return <span className="redacted-dark inline-block px-2 py-0.5 rounded text-xs font-mono">██████</span>;
+    return null;
   }
+
+  if (!status) return null;
 
   return (
     <span className="px-2 py-0.5 rounded text-xs font-mono bg-gray-900 text-gray-300 border border-gray-700">
-      {status ?? "██████"}
+      {status}
     </span>
   );
 }

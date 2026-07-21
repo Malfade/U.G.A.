@@ -2,9 +2,10 @@
 
 import { useLoreStore } from "@/lib/store";
 import { useActiveFaction } from "./FactionProvider";
+import { CLEARANCE_LABELS } from "@/lib/redact";
 
 export function Header() {
-  const { discoveryPercent } = useLoreStore();
+  const { discoveryPercent, clearanceLevel } = useLoreStore();
   const { label, accentHex, isObserver } = useActiveFaction();
 
   return (
@@ -32,12 +33,14 @@ export function Header() {
       </div>
       <div className="flex items-center gap-6">
         <div className="text-gray-600">
-          ДОСТУПНО ДОКУМЕНТОВ:{" "}
-          <span style={{ color: accentHex }}>{discoveryPercent}%</span>
+          ДОПУСК:{" "}
+          <span style={{ color: accentHex }}>
+            L{clearanceLevel} · {CLEARANCE_LABELS[clearanceLevel] ?? "—"}
+          </span>
         </div>
         <div className="text-gray-600">
-          ЗАСЕКРЕЧЕНО:{" "}
-          <span className="text-red-400">{100 - discoveryPercent}%</span>
+          ДОСТУПНО:{" "}
+          <span style={{ color: accentHex }}>{discoveryPercent}%</span>
         </div>
       </div>
     </header>

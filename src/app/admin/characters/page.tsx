@@ -4,7 +4,10 @@ import { AdminEntityList } from "@/components/admin/AdminEntityList";
 
 export default async function AdminCharactersPage() {
   const characters = await prisma.character.findMany({
-    include: { faction: { select: { name: true } } },
+    include: {
+      faction: { select: { name: true } },
+      organization: { select: { name: true } },
+    },
     orderBy: { name: "asc" },
   });
 
@@ -27,7 +30,14 @@ export default async function AdminCharactersPage() {
         items={characters.map((c) => ({
           id: c.id,
           title: c.name,
-          subtitle: c.faction?.name ?? "Нет фракции",
+          subtitle:
+            [
+              c.isSecondary ? "второстепенный" : null,
+              c.faction?.name,
+              c.organization?.name,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "Без привязки",
           status: c.status,
           editHref: `/admin/characters/${c.id}`,
           viewHref: `/characters/${c.id}`,

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AccessLevel } from "@/components/ui/AccessLevel";
 import { FactionAwareDocument } from "@/components/entities/FactionAwareDocument";
+import { DecryptUnlockCard } from "@/components/entities/DecryptUnlockCard";
+import { EntityFieldsView } from "@/components/entities/EntityFieldsView";
 
 export default async function DocumentPage({
   params,
@@ -10,15 +12,22 @@ export default async function DocumentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const doc = await prisma.document.findUnique({
-    where: { id },
-    include: {
-      characterDocuments: { include: { character: { select: { id: true, name: true } } } },
-      eventDocuments: { include: { event: { select: { id: true, name: true } } } },
-      argLocks: true,
-      factionViews: { include: { faction: true } },
-    },
-  });
+  const [doc, fields] = await Promise.all([
+    prisma.document.findUnique({
+      where: { id },
+      include: {
+        characterDocuments: { include: { character: { select: { id: true, name: true } } } },
+        eventDocuments: { include: { event: { select: { id: true, name: true } } } },
+        argLocks: true,
+        factionViews: { include: { faction: true } },
+        unlocks: true,
+      },
+    }),
+    prisma.entityField.findMany({
+      where: { entityType: "document", entityId: id },
+      orderBy: { sortOrder: "asc" },
+    }),
+  ]);
 
   if (!doc) notFound();
 
@@ -62,6 +71,14 @@ export default async function DocumentPage({
           locks={doc.argLocks}
           factionViews={doc.factionViews}
         />
+
+        <div className="mt-4">
+          <EntityFieldsView fields={fields} />
+        </div>
+
+        {doc.unlocks.map((u) => (
+          <DecryptUnlockCard key={u.id} unlock={u} />
+        ))}
       </div>
 
       {doc.characterDocuments.length > 0 && (

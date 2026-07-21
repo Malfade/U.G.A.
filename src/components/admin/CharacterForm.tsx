@@ -17,15 +17,18 @@ interface CharacterData {
   biography: string | null;
   abilities: string | null;
   factionId: string | null;
+  organizationId: string | null;
   accessLevel: number;
+  isSecondary: boolean;
 }
 
 interface Props {
   factions: { id: string; name: string }[];
+  organizations: { id: string; name: string }[];
   character?: CharacterData;
 }
 
-export function CharacterForm({ factions, character }: Props) {
+export function CharacterForm({ factions, organizations, character }: Props) {
   const isEdit = !!character;
 
   const handleSubmit = async (formData: FormData) => {
@@ -62,6 +65,19 @@ export function CharacterForm({ factions, character }: Props) {
           </select>
         </div>
         <div>
+          <label className="block font-mono text-[10px] text-gray-600 tracking-widest mb-1">ОРГАНИЗАЦИЯ</label>
+          <select
+            name="organizationId"
+            defaultValue={character?.organizationId ?? ""}
+            className="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 font-mono text-sm text-gray-200 focus:outline-none focus:border-emerald-400"
+          >
+            <option value="">Нет организации</option>
+            {organizations.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="block font-mono text-[10px] text-gray-600 tracking-widest mb-1">УРОВЕНЬ ДОСТУПА</label>
           <select
             name="accessLevel"
@@ -74,6 +90,19 @@ export function CharacterForm({ factions, character }: Props) {
             <option value="3">3 — Совершенно секретный</option>
             <option value="4">4 — Особой важности</option>
           </select>
+        </div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 cursor-pointer py-2">
+            <input
+              type="checkbox"
+              name="isSecondary"
+              defaultChecked={character?.isSecondary ?? false}
+              className="rounded border-gray-700 bg-gray-950 text-amber-400 focus:ring-amber-400/30"
+            />
+            <span className="font-mono text-xs text-gray-400">
+              Второстепенный (не в общем списке)
+            </span>
+          </label>
         </div>
       </div>
 
@@ -104,7 +133,7 @@ export function CharacterForm({ factions, character }: Props) {
       </div>
 
       <p className="font-mono text-[10px] text-gray-700">
-        Пустые поля автоматически отображаются как засекреченные (████████████)
+        Пустые поля не отображаются. Засекречивание — через кастомные поля ниже (маркер [[R]]).
       </p>
     </form>
   );

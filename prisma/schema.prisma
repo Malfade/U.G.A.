@@ -20,6 +20,7 @@ model Faction {
 
   characters   Character[]
   factionViews FactionView[]
+  dialogues    Dialogue[]
 }
 
 model Character {
@@ -40,11 +41,15 @@ model Character {
   inventory   String?
   image       String?
   accessLevel Int      @default(0)
+  isSecondary Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   factionId String?
   faction   Faction? @relation(fields: [factionId], references: [id])
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   relationshipsA    Relationship[]     @relation("CharacterA")
   relationshipsB    Relationship[]     @relation("CharacterB")
@@ -53,6 +58,8 @@ model Character {
   factionViews      FactionView[]      @relation("CharacterFactionViews")
   media             Media[]            @relation("CharacterMedia")
   notes             Note[]
+  dialogueLines     DialogueLine[]
+  aboutDialogues    Dialogue[]         @relation("AboutCharacter")
 }
 
 model Organization {
@@ -68,6 +75,7 @@ model Organization {
 
   factionViews FactionView[] @relation("OrgFactionViews")
   media        Media[]       @relation("OrgMedia")
+  characters   Character[]
 }
 
 model Location {
@@ -85,6 +93,8 @@ model Location {
   events       EventLocation[]
   factionViews FactionView[]   @relation("LocationFactionViews")
   media        Media[]         @relation("LocationMedia")
+  dialogues    Dialogue[]      @relation("DialogueLocation")
+  aboutDialogues Dialogue[]    @relation("AboutLocation")
 }
 
 model Event {
@@ -123,6 +133,7 @@ model Document {
   argKeysHidden      ARGKey[]       @relation("KeyHiddenIn")
   factionViews       FactionView[]  @relation("DocFactionViews")
   media              Media[]        @relation("DocMedia")
+  unlocks            ClearanceUnlock[]
 }
 
 model Relationship {
@@ -285,4 +296,67 @@ model AdminUser {
   id       String @id @default(cuid())
   username String @unique
   password String
+}
+
+model EntityField {
+  id            String  @id @default(cuid())
+  entityType    String
+  entityId      String
+  label         String
+  content       String  @default("")
+  accessLevel   Int     @default(0)
+  sortOrder     Int     @default(0)
+  fullyRedacted Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([entityType, entityId])
+}
+
+model Dialogue {
+  id               String   @id @default(cuid())
+  title            String?
+  kind             String   @default("dialogue")
+  summary          String?
+  accessLevel      Int      @default(0)
+  locationId       String?
+  location         Location? @relation("DialogueLocation", fields: [locationId], references: [id], onDelete: SetNull)
+  aboutCharacterId String?
+  aboutCharacter   Character? @relation("AboutCharacter", fields: [aboutCharacterId], references: [id], onDelete: SetNull)
+  aboutLocationId  String?
+  aboutLocation    Location? @relation("AboutLocation", fields: [aboutLocationId], references: [id], onDelete: SetNull)
+  factionId        String?
+  faction          Faction? @relation(fields: [factionId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  lines   DialogueLine[]
+  unlocks ClearanceUnlock[]
+}
+
+model DialogueLine {
+  id           String  @id @default(cuid())
+  dialogueId   String
+  dialogue     Dialogue @relation(fields: [dialogueId], references: [id], onDelete: Cascade)
+  speakerId    String?
+  speaker      Character? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  speakerLabel String?
+  text         String
+  sortOrder    Int     @default(0)
+}
+
+model ClearanceUnlock {
+  id          String  @id @default(cuid())
+  title       String
+  grantsLevel Int     @default(1)
+  cipherText  String
+  solutionKey String
+  rewardCode  String
+  hint        String?
+  dialogueId  String?
+  dialogue    Dialogue? @relation(fields: [dialogueId], references: [id], onDelete: SetNull)
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

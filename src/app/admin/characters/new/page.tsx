@@ -3,10 +3,10 @@ import Link from "next/link";
 import { CharacterForm } from "@/components/admin/CharacterForm";
 
 export default async function NewCharacterPage() {
-  const factions = await prisma.faction.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const [factions, organizations] = await Promise.all([
+    prisma.faction.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.organization.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
@@ -18,7 +18,7 @@ export default async function NewCharacterPage() {
           СОЗДАТЬ ПЕРСОНАЖА
         </h1>
       </div>
-      <CharacterForm factions={factions} />
+      <CharacterForm factions={factions} organizations={organizations} />
     </div>
   );
 }

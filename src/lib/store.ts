@@ -14,6 +14,12 @@ interface LoreState {
   unlockKey: (code: string) => void;
   hasKey: (code: string) => boolean;
 
+  clearanceLevel: number;
+  solvedUnlocks: string[];
+  raiseClearance: (level: number) => void;
+  solveUnlock: (id: string) => void;
+  hasSolvedUnlock: (id: string) => boolean;
+
   viewedEntities: string[];
   markViewed: (entityKey: string) => void;
   discoveryPercent: number;
@@ -43,6 +49,20 @@ export const useLoreStore = create<LoreState>()(
             : [...s.unlockedKeys, code],
         })),
       hasKey: (code) => get().unlockedKeys.includes(code),
+
+      clearanceLevel: 0,
+      solvedUnlocks: [],
+      raiseClearance: (level) =>
+        set((s) => ({
+          clearanceLevel: Math.max(s.clearanceLevel, level),
+        })),
+      solveUnlock: (id) =>
+        set((s) => ({
+          solvedUnlocks: s.solvedUnlocks.includes(id)
+            ? s.solvedUnlocks
+            : [...s.solvedUnlocks, id],
+        })),
+      hasSolvedUnlock: (id) => get().solvedUnlocks.includes(id),
 
       viewedEntities: [],
       markViewed: (entityKey) =>

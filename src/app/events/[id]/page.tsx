@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EventProfileCard } from "@/components/entities/EventProfileCard";
+import { DialoguesList } from "@/components/entities/DialogueCard";
 
 export default async function EventPage({
   params,
@@ -13,13 +14,50 @@ export default async function EventPage({
     where: { id },
     include: {
       eventLocations: { include: { location: true } },
-      characterEvents: { include: { character: { select: { id: true, name: true, status: true } } } },
-      eventDocuments: { include: { document: { select: { id: true, title: true, type: true } } } },
+      characterEvents: {
+        include: {
+          character: {
+            select: { id: true, name: true, status: true, isSecondary: true },
+          },
+        },
+      },
+      eventDocuments: {
+        include: { document: { select: { id: true, title: true, type: true } } },
+      },
       factionViews: { include: { faction: true } },
     },
   });
 
   if (!event) notFound();
+
+  const locationIds = event.eventLocations.map((el) => el.locationId);
+  const dialogues =
+    locationIds.length > 0
+      ? await prisma.dialogue.findMany({
+          where: {
+            OR: [
+              { locationId: { in: locationIds } },
+              { aboutLocationId: { in: locationIds } },
+            ],
+          },
+          include: {
+            location: { select: { id: true, name: true } },
+            aboutCharacter: { select: { id: true, name: true } },
+            aboutLocation: { select: { id: true, name: true } },
+            faction: { select: { id: true, name: true } },
+            lines: {
+              orderBy: { sortOrder: "asc" },
+              include: { speaker: { select: { id: true, name: true } } },
+            },
+            unlocks: true,
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
+
+  const primaryParticipants = event.characterEvents.filter(
+    (ce) => !ce.character.isSecondary
+  );
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -35,32 +73,38 @@ export default async function EventPage({
       <EventProfileCard event={event} factionViews={event.factionViews} />
 
       {event.eventLocations.length > 0 && (
-        <div className="border border-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="font-mono text-xs text-gray-500 tracking-widest mb-4">ЛОКАЦИИ</h2>
+        <div className="mb-6 rounded-lg border border-gray-800 p-6">
+          <h2 className="mb-4 font-mono text-xs tracking-widest text-gray-500">
+            ЛОКАЦИИ
+          </h2>
           <div className="space-y-2">
             {event.eventLocations.map(({ location }) => (
               <Link
                 key={location.id}
                 href={`/map/${location.id}`}
-                className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-900 font-mono text-sm text-gray-300 hover:text-emerald-400 transition-colors"
+                className="flex items-center justify-between rounded px-3 py-2 font-mono text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:text-emerald-400"
               >
                 <span>📍 {location.name}</span>
-                <span className="text-xs text-gray-600 uppercase">{location.type}</span>
+                <span className="text-xs uppercase text-gray-600">
+                  {location.type}
+                </span>
               </Link>
             ))}
           </div>
         </div>
       )}
 
-      {event.characterEvents.length > 0 && (
-        <div className="border border-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="font-mono text-xs text-gray-500 tracking-widest mb-4">УЧАСТНИКИ</h2>
-          <div className="flex gap-2 flex-wrap">
-            {event.characterEvents.map(({ character }) => (
+      {primaryParticipants.length > 0 && (
+        <div className="mb-6 rounded-lg border border-gray-800 p-6">
+          <h2 className="mb-4 font-mono text-xs tracking-widest text-gray-500">
+            УЧАСТНИКИ
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {primaryParticipants.map(({ character }) => (
               <Link
                 key={character.id}
                 href={`/characters/${character.id}`}
-                className="px-3 py-1.5 bg-gray-900 rounded text-sm font-mono text-emerald-400 hover:bg-gray-800 transition-colors"
+                className="rounded bg-gray-900 px-3 py-1.5 font-mono text-sm text-emerald-400 transition-colors hover:bg-gray-800"
               >
                 {character.name}
               </Link>
@@ -69,18 +113,25 @@ export default async function EventPage({
         </div>
       )}
 
+      <DialoguesList
+        dialogues={dialogues}
+        title="ЗАПИСИ / ЗВОНКИ ПО РЕГИОНУ"
+      />
+
       {event.eventDocuments.length > 0 && (
-        <div className="border border-gray-800 rounded-lg p-6">
-          <h2 className="font-mono text-xs text-gray-500 tracking-widest mb-4">ДОКУМЕНТЫ</h2>
+        <div className="rounded-lg border border-gray-800 p-6">
+          <h2 className="mb-4 font-mono text-xs tracking-widest text-gray-500">
+            ДОКУМЕНТЫ
+          </h2>
           <div className="space-y-2">
             {event.eventDocuments.map(({ document: doc }) => (
               <Link
                 key={doc.id}
                 href={`/documents/${doc.id}`}
-                className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-900 font-mono text-sm text-gray-300 hover:text-emerald-400 transition-colors"
+                className="flex items-center justify-between rounded px-3 py-2 font-mono text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:text-emerald-400"
               >
                 <span>{doc.title}</span>
-                <span className="text-xs text-gray-600 uppercase">{doc.type}</span>
+                <span className="text-xs uppercase text-gray-600">{doc.type}</span>
               </Link>
             ))}
           </div>

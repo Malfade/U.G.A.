@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CharacterProfileCard } from "@/components/entities/CharacterProfileCard";
+import { DialoguesList } from "@/components/entities/DialogueCard";
 
 export default async function CharacterPage({
   params,
@@ -13,6 +14,7 @@ export default async function CharacterPage({
     where: { id },
     include: {
       faction: true,
+      organization: true,
       characterEvents: { include: { event: true } },
       characterDocuments: { include: { document: { select: { id: true, title: true, type: true } } } },
       relationshipsA: {
@@ -37,7 +39,7 @@ export default async function CharacterPage({
   const charName = character.name;
   const charCallsign = character.callsign;
 
-  const [mentionedInEvents, mentionedInDocuments, mentionedInOrgs, mentionedInLocations, mentionedInFactionViews] = await Promise.all([
+  const [mentionedInEvents, mentionedInDocuments, mentionedInOrgs, mentionedInLocations, mentionedInFactionViews, entityFields, dialogues] = await Promise.all([
     prisma.event.findMany({
       where: {
         OR: [
@@ -104,6 +106,30 @@ export default async function CharacterPage({
       },
       include: { faction: true },
     }),
+    prisma.entityField.findMany({
+      where: { entityType: "character", entityId: id },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.dialogue.findMany({
+      where: {
+        OR: [
+          { aboutCharacterId: id },
+          { lines: { some: { speakerId: id } } },
+        ],
+      },
+      include: {
+        location: { select: { id: true, name: true } },
+        aboutCharacter: { select: { id: true, name: true } },
+        aboutLocation: { select: { id: true, name: true } },
+        faction: { select: { id: true, name: true } },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: { speaker: { select: { id: true, name: true } } },
+        },
+        unlocks: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
 
   const linkedEventIds = new Set(character.characterEvents.map(ce => ce.event.id));
@@ -146,8 +172,11 @@ export default async function CharacterPage({
       <CharacterProfileCard
         character={character}
         factionViews={character.factionViews}
+        fields={entityFields}
         quotes={quotes}
       />
+
+      <DialoguesList dialogues={dialogues} />
 
       {hasMentions && (
         <div className="border border-amber-400/20 bg-amber-400/5 rounded-lg p-6 mb-6">

@@ -9,10 +9,29 @@ const SECTIONS = [
   { href: "/admin/locations", label: "ЛОКАЦИИ", icon: "◎", entity: "location" },
   { href: "/admin/factions", label: "ФРАКЦИИ", icon: "◆", entity: "faction" },
   { href: "/admin/relationships", label: "СВЯЗИ", icon: "⟷", entity: "relationship" },
+  { href: "/admin/dialogues", label: "ДИАЛОГИ", icon: "◈", entity: "dialogue" },
+  { href: "/admin/unlocks", label: "ФРАГМЕНТЫ", icon: "▣", entity: "unlock" },
 ];
 
 export default async function AdminPage() {
-  const [chars, events, docs, orgs, locs, factions, relationships] = await Promise.all([
+  const [
+    chars,
+    events,
+    docs,
+    orgs,
+    locs,
+    factions,
+    relationships,
+    characterEvents,
+    eventLocations,
+    characterDocuments,
+    eventDocuments,
+    charsWithOrg,
+    dialoguesWithLinks,
+    entityLinks,
+    dialogues,
+    unlocks,
+  ] = await Promise.all([
     prisma.character.count(),
     prisma.event.count(),
     prisma.document.count(),
@@ -20,7 +39,34 @@ export default async function AdminPage() {
     prisma.location.count(),
     prisma.faction.count(),
     prisma.relationship.count(),
+    prisma.characterEvent.count(),
+    prisma.eventLocation.count(),
+    prisma.characterDocument.count(),
+    prisma.eventDocument.count(),
+    prisma.character.count({ where: { organizationId: { not: null } } }),
+    prisma.dialogue.count({
+      where: {
+        OR: [
+          { locationId: { not: null } },
+          { aboutCharacterId: { not: null } },
+          { aboutLocationId: { not: null } },
+        ],
+      },
+    }),
+    prisma.entityLink.count(),
+    prisma.dialogue.count(),
+    prisma.clearanceUnlock.count(),
   ]);
+
+  const linkTotal =
+    relationships +
+    characterEvents +
+    eventLocations +
+    characterDocuments +
+    eventDocuments +
+    charsWithOrg +
+    dialoguesWithLinks +
+    entityLinks;
 
   const counts: Record<string, number> = {
     character: chars,
@@ -29,7 +75,9 @@ export default async function AdminPage() {
     organization: orgs,
     location: locs,
     faction: factions,
-    relationship: relationships,
+    relationship: linkTotal,
+    dialogue: dialogues,
+    unlock: unlocks,
   };
 
   return (

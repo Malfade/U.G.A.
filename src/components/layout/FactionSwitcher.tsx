@@ -8,14 +8,6 @@ interface Faction {
   name: string;
 }
 
-const FACTION_ICONS: Record<string, string> = {
-  "Совет": "🔵",
-  "Красная Рука": "🔴",
-  "Повстанцы": "🟡",
-  "Мирные жители": "🟢",
-  "Заражённые": "🟣",
-};
-
 export function FactionSwitcher({ factions }: { factions: Faction[] }) {
   const selectedFactionId = useLoreStore((s) => s.selectedFactionId);
   const setFaction = useLoreStore((s) => s.setFaction);
@@ -42,7 +34,7 @@ export function FactionSwitcher({ factions }: { factions: Faction[] }) {
           }`}
           style={selectedFactionId === null ? activeStyle : undefined}
         >
-          ◇ Неизвестный наблюдатель
+          ◆ Неизвестный наблюдатель
         </button>
         {factions.map((f) => (
           <button
@@ -55,7 +47,7 @@ export function FactionSwitcher({ factions }: { factions: Faction[] }) {
             }`}
             style={selectedFactionId === f.id ? activeStyle : undefined}
           >
-            {FACTION_ICONS[f.name] ?? "◆"} {f.name}
+            ◆ {f.name}
           </button>
         ))}
       </div>

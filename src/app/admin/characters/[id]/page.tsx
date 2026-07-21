@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CharacterForm } from "@/components/admin/CharacterForm";
 import { NotesList } from "@/components/admin/NotesList";
 import { FactionViewsEditor } from "@/components/admin/FactionViewsEditor";
+import { EntityFieldsEditor } from "@/components/admin/EntityFieldsEditor";
 
 export default async function EditCharacterPage({
   params,
@@ -11,15 +12,20 @@ export default async function EditCharacterPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [character, factions, factionViews] = await Promise.all([
+  const [character, factions, organizations, factionViews, fields] = await Promise.all([
     prisma.character.findUnique({
       where: { id },
       include: { notes: { orderBy: { createdAt: "desc" } } },
     }),
     prisma.faction.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.organization.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.factionView.findMany({
       where: { entityType: "character", entityId: id },
       include: { faction: true },
+    }),
+    prisma.entityField.findMany({
+      where: { entityType: "character", entityId: id },
+      orderBy: { sortOrder: "asc" },
     }),
   ]);
   if (!character) notFound();
@@ -34,7 +40,8 @@ export default async function EditCharacterPage({
           РЕДАКТИРОВАТЬ: {character.name}
         </h1>
       </div>
-      <CharacterForm factions={factions} character={character} />
+      <CharacterForm factions={factions} organizations={organizations} character={character} />
+      <EntityFieldsEditor entityType="character" entityId={id} fields={fields} />
       <FactionViewsEditor
         entityType="character"
         entityId={id}

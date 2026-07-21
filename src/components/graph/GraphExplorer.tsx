@@ -11,7 +11,7 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
 interface GraphNode {
   id: string;
   name: string;
-  type: "character" | "organization" | "event";
+  type: "character" | "organization" | "event" | "location" | "document" | "dialogue";
   group: string;
 }
 
@@ -23,16 +23,24 @@ interface GraphLink {
   id: string;
 }
 
+export type { GraphNode, GraphLink };
+
 const TYPE_COLORS: Record<string, string> = {
   character: "#34d399",
   organization: "#60a5fa",
   event: "#f59e0b",
+  location: "#38bdf8",
+  document: "#a3a3a3",
+  dialogue: "#fbbf24",
 };
 
 const TYPE_LABELS: Record<string, string> = {
   character: "Персонаж",
   organization: "Организация",
   event: "Событие",
+  location: "Локация",
+  document: "Документ",
+  dialogue: "Запись",
 };
 
 const GROUP_COLORS: Record<string, string> = {
@@ -41,15 +49,22 @@ const GROUP_COLORS: Record<string, string> = {
   "Повстанцы": "#fbbf24",
   "Мирные жители": "#34d399",
   "Заражённые": "#c084fc",
+  DCD: "#34d399",
   "Нет фракции": "#6b7280",
   "Организация": "#60a5fa",
   "Событие": "#f59e0b",
+  "Локация": "#38bdf8",
+  "Документ": "#a3a3a3",
+  "Запись": "#fbbf24",
 };
 
 function getNodeHref(node: GraphNode): string {
   if (node.type === "character") return `/characters/${node.id}`;
   if (node.type === "organization") return `/organizations/${node.id.replace("org-", "")}`;
   if (node.type === "event") return `/events/${node.id.replace("event-", "")}`;
+  if (node.type === "location") return `/map/${node.id.replace("loc-", "")}`;
+  if (node.type === "document") return `/documents/${node.id.replace("doc-", "")}`;
+  if (node.type === "dialogue") return `/dialogues/${node.id.replace("dlg-", "")}`;
   return "#";
 }
 
@@ -293,7 +308,11 @@ export function GraphExplorer({
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="font-mono text-[9px] text-gray-600">{link.type}</span>
-                          <span className="font-mono text-[9px] text-emerald-400/60">{link.trustLevel}%</span>
+                          {link.id.startsWith("rel-") && (
+                            <span className="font-mono text-[9px] text-emerald-400/60">
+                              {link.trustLevel}%
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -349,8 +368,8 @@ export function GraphExplorer({
                     <div className="font-mono text-[9px] text-gray-600">ПЕРСОНАЖИ</div>
                   </div>
                   <div className="bg-gray-900/50 rounded p-2 border border-gray-800">
-                    <div className="font-mono text-lg text-blue-400">{nodes.filter(n => n.type === "organization").length}</div>
-                    <div className="font-mono text-[9px] text-gray-600">ОРГАНИЗАЦИИ</div>
+                    <div className="font-mono text-lg text-sky-400">{nodes.filter(n => n.type === "location").length}</div>
+                    <div className="font-mono text-[9px] text-gray-600">ЛОКАЦИИ</div>
                   </div>
                   <div className="bg-gray-900/50 rounded p-2 border border-gray-800">
                     <div className="font-mono text-lg text-amber-400">{nodes.filter(n => n.type === "event").length}</div>

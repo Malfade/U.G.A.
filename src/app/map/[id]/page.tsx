@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LocationProfileCard } from "@/components/entities/LocationProfileCard";
+import { DialoguesList } from "@/components/entities/DialogueCard";
 
 export default async function LocationPage({
   params,
@@ -9,13 +10,36 @@ export default async function LocationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const location = await prisma.location.findUnique({
-    where: { id },
-    include: {
-      events: { include: { event: true } },
-      factionViews: { include: { faction: true } },
-    },
-  });
+  const [location, fields, dialogues] = await Promise.all([
+    prisma.location.findUnique({
+      where: { id },
+      include: {
+        events: { include: { event: true } },
+        factionViews: { include: { faction: true } },
+      },
+    }),
+    prisma.entityField.findMany({
+      where: { entityType: "location", entityId: id },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.dialogue.findMany({
+      where: {
+        OR: [{ locationId: id }, { aboutLocationId: id }],
+      },
+      include: {
+        location: { select: { id: true, name: true } },
+        aboutCharacter: { select: { id: true, name: true } },
+        aboutLocation: { select: { id: true, name: true } },
+        faction: { select: { id: true, name: true } },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: { speaker: { select: { id: true, name: true } } },
+        },
+        unlocks: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
 
   if (!location) notFound();
 
@@ -30,11 +54,19 @@ export default async function LocationPage({
         </Link>
       </div>
 
-      <LocationProfileCard location={location} factionViews={location.factionViews} />
+      <LocationProfileCard
+        location={location}
+        factionViews={location.factionViews}
+        fields={fields}
+      />
+
+      <DialoguesList dialogues={dialogues} />
 
       {location.events.length > 0 && (
         <div className="border border-gray-800 rounded-lg p-6">
-          <h2 className="font-mono text-xs text-gray-500 tracking-widest mb-4">СОБЫТИЯ В ЛОКАЦИИ</h2>
+          <h2 className="font-mono text-xs text-gray-500 tracking-widest mb-4">
+            СОБЫТИЯ В ЛОКАЦИИ
+          </h2>
           <div className="space-y-2">
             {location.events.map(({ event }) => (
               <Link
@@ -43,7 +75,9 @@ export default async function LocationPage({
                 className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-900 font-mono text-sm text-gray-300 hover:text-emerald-400 transition-colors"
               >
                 <span>{event.name}</span>
-                <span className="text-xs text-gray-600">{event.date ?? "██████"}</span>
+                {event.date && (
+                  <span className="text-xs text-gray-600">{event.date}</span>
+                )}
               </Link>
             ))}
           </div>

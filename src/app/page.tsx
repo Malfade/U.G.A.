@@ -4,7 +4,7 @@ import Link from "next/link";
 export default async function HomePage() {
   const [charCount, eventCount, docCount, orgCount, locCount] =
     await Promise.all([
-      prisma.character.count(),
+      prisma.character.count({ where: { isSecondary: false } }),
       prisma.event.count(),
       prisma.document.count(),
       prisma.organization.count(),

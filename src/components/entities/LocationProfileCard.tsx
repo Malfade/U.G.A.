@@ -1,8 +1,11 @@
 "use client";
 
 import { AccessLevel } from "@/components/ui/AccessLevel";
+import { EntityFieldsView, EntityFieldData } from "./EntityFieldsView";
 import { FactionAwareContent } from "./FactionAwareContent";
 import { FactionViewData } from "@/lib/faction-content";
+import { useLoreStore } from "@/lib/store";
+import { CLEARANCE_LABELS } from "@/lib/redact";
 
 const TYPE_LABELS: Record<string, string> = {
   city: "ГОРОД",
@@ -22,9 +25,16 @@ interface LocationProfileProps {
     accessLevel: number;
   };
   factionViews: FactionViewData[];
+  fields: EntityFieldData[];
 }
 
-export function LocationProfileCard({ location, factionViews }: LocationProfileProps) {
+export function LocationProfileCard({
+  location,
+  factionViews,
+  fields,
+}: LocationProfileProps) {
+  const clearance = useLoreStore((s) => s.clearanceLevel);
+  const locked = clearance < location.accessLevel;
   const coords =
     location.coordX != null && location.coordY != null
       ? `${location.coordX.toFixed(2)}, ${location.coordY.toFixed(2)}`
@@ -42,14 +52,51 @@ export function LocationProfileCard({ location, factionViews }: LocationProfileP
         <AccessLevel level={location.accessLevel} />
       </div>
 
-      <FactionAwareContent
-        factionViews={factionViews}
-        fields={[
-          { key: "population", label: "НАСЕЛЕНИЕ", value: location.population },
-          { key: "coordinates", label: "КООРДИНАТЫ", value: coords },
-          { key: "description", label: "ОПИСАНИЕ", value: location.description, multiline: true },
-        ]}
-      />
+      {locked ? (
+        <div className="border border-red-900/40 bg-red-950/20 rounded p-4 text-center">
+          <p className="font-mono text-xs text-red-400">
+            ДОСТУП ОТКАЗАН —{" "}
+            {CLEARANCE_LABELS[location.accessLevel] ?? `L${location.accessLevel}`}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            {location.population && (
+              <div>
+                <div className="font-mono text-[10px] text-gray-600 tracking-widest mb-1">
+                  НАСЕЛЕНИЕ
+                </div>
+                <div className="text-sm text-gray-200">{location.population}</div>
+              </div>
+            )}
+            {coords && (
+              <div>
+                <div className="font-mono text-[10px] text-gray-600 tracking-widest mb-1">
+                  КООРДИНАТЫ
+                </div>
+                <div className="text-sm text-gray-200 font-mono">{coords}</div>
+              </div>
+            )}
+          </div>
+
+          <FactionAwareContent
+            factionViews={factionViews}
+            fields={[
+              {
+                key: "description",
+                label: "ОПИСАНИЕ",
+                value: location.description,
+                multiline: true,
+              },
+            ]}
+          />
+
+          <div className="mt-4">
+            <EntityFieldsView fields={fields} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

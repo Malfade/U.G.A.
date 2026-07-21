@@ -6,6 +6,7 @@ import { AccessLevel } from "@/components/ui/AccessLevel";
 
 export default async function CharactersPage() {
   const characters = await prisma.character.findMany({
+    where: { isSecondary: false },
     include: { faction: { select: { name: true } } },
     orderBy: { name: "asc" },
   });

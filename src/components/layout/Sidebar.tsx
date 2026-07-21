@@ -4,10 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FactionSwitcher } from "./FactionSwitcher";
 import { useActiveFaction } from "./FactionProvider";
+import { useLoreStore } from "@/lib/store";
+import { CLEARANCE_LABELS } from "@/lib/redact";
 
 interface Faction {
   id: string;
   name: string;
+}
+
+function ClearanceBadge() {
+  const level = useLoreStore((s) => s.clearanceLevel);
+  const { accentHex } = useActiveFaction();
+  return (
+    <div className="px-4 py-3 border-t border-gray-800">
+      <div className="font-mono text-[10px] text-gray-600 tracking-widest mb-1">
+        УРОВЕНЬ ДОПУСКА
+      </div>
+      <div className="font-mono text-sm" style={{ color: accentHex }}>
+        L{level} — {CLEARANCE_LABELS[level] ?? "НЕИЗВЕСТЕН"}
+      </div>
+    </div>
+  );
 }
 
 const NAV_ITEMS = [
@@ -17,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/organizations", label: "ОРГАНИЗАЦИИ", icon: "⬡" },
   { href: "/events", label: "ХРОНОЛОГИЯ", icon: "◫" },
   { href: "/documents", label: "ДОКУМЕНТЫ", icon: "▤" },
+  { href: "/dialogues", label: "ДИАЛОГИ", icon: "◈" },
   { href: "/graph", label: "СЕТЬ СВЯЗЕЙ", icon: "◬" },
   { href: "/factions", label: "ТОЧКА ОБЗОРА", icon: "◇" },
 ];
@@ -76,6 +94,8 @@ export function Sidebar({ factions }: { factions: Faction[] }) {
       </nav>
 
       <FactionSwitcher factions={factions} />
+
+      <ClearanceBadge />
 
       <div className="p-4 border-t border-gray-800">
         <Link

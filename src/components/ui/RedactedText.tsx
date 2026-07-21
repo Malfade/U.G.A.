@@ -1,6 +1,6 @@
 "use client";
 
-import { isRedacted } from "@/lib/redact";
+import { isEmpty } from "@/lib/redact";
 
 interface RedactedTextProps {
   value: string | null | undefined;
@@ -8,20 +8,12 @@ interface RedactedTextProps {
   as?: "span" | "p" | "div" | "h1" | "h2" | "h3";
 }
 
+/** Renders value as-is. Returns null if empty — never auto-redacts. */
 export function RedactedText({
   value,
   className = "",
   as: Tag = "span",
 }: RedactedTextProps) {
-  if (isRedacted(value)) {
-    return (
-      <Tag
-        className={`redacted-dark inline-block px-1 rounded text-sm tracking-widest select-none ${className}`}
-      >
-        ████████████
-      </Tag>
-    );
-  }
-
+  if (isEmpty(value)) return null;
   return <Tag className={className}>{value}</Tag>;
 }

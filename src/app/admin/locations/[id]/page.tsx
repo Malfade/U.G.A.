@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LocationForm } from "@/components/admin/LocationForm";
 import { FactionViewsEditor } from "@/components/admin/FactionViewsEditor";
+import { EntityFieldsEditor } from "@/components/admin/EntityFieldsEditor";
 
 export default async function EditLocationPage({
   params,
@@ -10,12 +11,16 @@ export default async function EditLocationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [location, factions, factionViews] = await Promise.all([
+  const [location, factions, factionViews, fields] = await Promise.all([
     prisma.location.findUnique({ where: { id } }),
     prisma.faction.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.factionView.findMany({
       where: { entityType: "location", entityId: id },
       include: { faction: true },
+    }),
+    prisma.entityField.findMany({
+      where: { entityType: "location", entityId: id },
+      orderBy: { sortOrder: "asc" },
     }),
   ]);
   if (!location) notFound();
@@ -31,6 +36,7 @@ export default async function EditLocationPage({
         </h1>
       </div>
       <LocationForm location={location} />
+      <EntityFieldsEditor entityType="location" entityId={id} fields={fields} />
       <FactionViewsEditor
         entityType="location"
         entityId={id}

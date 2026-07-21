@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessLevel } from "@/components/ui/AccessLevel";
+import { useLoreStore } from "@/lib/store";
 import { COUNTRIES } from "./countries";
 
 interface LocationData {
@@ -72,6 +73,8 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const clearance = useLoreStore((s) => s.clearanceLevel);
   const rotRef = useRef({ x: -0.3, y: 0.5 });
   const zoomRef = useRef(1);
   const targetRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
@@ -79,10 +82,23 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
   const lastMouseRef = useRef({ x: 0, y: 0 });
   const autoRotateRef = useRef(true);
   const animRef = useRef<number>(0);
-  const projectedRef = useRef<{ id: string; sx: number; sy: number; visible: boolean }[]>([]);
+  const projectedRef = useRef<
+    { id: string; sx: number; sy: number; visible: boolean; isCluster?: boolean; memberIds?: string[] }[]
+  >([]);
 
-  const filtered = filter === "all" ? locations : locations.filter((l) => l.type === filter);
-  const selectedLoc = filtered.find((l) => l.id === selected);
+  const accessible = useMemo(
+    () => locations.filter((l) => l.accessLevel <= clearance),
+    [locations, clearance]
+  );
+
+  const filtered = useMemo(() => {
+    let list = filter === "all" ? accessible : accessible.filter((l) => l.type === filter);
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter((l) => l.name.toLowerCase().includes(q));
+    return list;
+  }, [accessible, filter, search]);
+
+  const selectedLoc = accessible.find((l) => l.id === selected);
 
   // When selection changes, set animation target
   const selectLocation = useCallback((id: string | null) => {
@@ -317,29 +333,102 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // --- Location points ---
-    const projected: { id: string; sx: number; sy: number; visible: boolean }[] = [];
+    // --- Location points (clustered when zoomed out) ---
+    const projected: {
+      id: string;
+      sx: number;
+      sy: number;
+      visible: boolean;
+      isCluster?: boolean;
+      memberIds?: string[];
+    }[] = [];
 
+    type ProjLoc = LocationData & { sx: number; sy: number; z: number };
+    const visibleLocs: ProjLoc[] = [];
     for (const loc of filtered) {
       const p = proj(loc.coordX, loc.coordY, radius, rot);
-      const sx = cx + p.x, sy = cy - p.y;
-      const visible = p.z > 0;
-      projected.push({ id: loc.id, sx, sy, visible });
-      if (!visible) continue;
+      if (p.z <= 0) {
+        projected.push({ id: loc.id, sx: cx + p.x, sy: cy - p.y, visible: false });
+        continue;
+      }
+      visibleLocs.push({ ...loc, sx: cx + p.x, sy: cy - p.y, z: p.z });
+    }
 
+    const useClusters = zoom < 1.5 && visibleLocs.length > 8;
+    const clusterThreshold = Math.max(28, 55 / zoom);
+
+    type Cluster = { sx: number; sy: number; z: number; members: ProjLoc[] };
+    const clusters: Cluster[] = [];
+
+    if (useClusters) {
+      const used = new Set<string>();
+      for (const loc of visibleLocs) {
+        if (used.has(loc.id)) continue;
+        const members = [loc];
+        used.add(loc.id);
+        for (const other of visibleLocs) {
+          if (used.has(other.id)) continue;
+          if (Math.hypot(loc.sx - other.sx, loc.sy - other.sy) < clusterThreshold) {
+            members.push(other);
+            used.add(other.id);
+          }
+        }
+        const sx = members.reduce((s, m) => s + m.sx, 0) / members.length;
+        const sy = members.reduce((s, m) => s + m.sy, 0) / members.length;
+        const z = members.reduce((s, m) => s + m.z, 0) / members.length;
+        clusters.push({ sx, sy, z, members });
+      }
+    } else {
+      for (const loc of visibleLocs) {
+        clusters.push({ sx: loc.sx, sy: loc.sy, z: loc.z, members: [loc] });
+      }
+    }
+
+    for (const cluster of clusters) {
+      const isMulti = cluster.members.length > 1 && useClusters;
+      const loc = cluster.members[0];
+      const sx = cluster.sx;
+      const sy = cluster.sy;
+      const depth = 0.4 + 0.6 * (cluster.z / radius);
+
+      if (isMulti) {
+        const clusterId = `cluster:${cluster.members.map((m) => m.id).join(",")}`;
+        projected.push({
+          id: clusterId,
+          sx,
+          sy,
+          visible: true,
+          isCluster: true,
+          memberIds: cluster.members.map((m) => m.id),
+        });
+        const count = cluster.members.length;
+        const dotR = 10 + Math.min(8, count);
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(52, 211, 153, 0.25)";
+        ctx.fill();
+        ctx.strokeStyle = "#34d399";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#34d399";
+        ctx.fillText(String(count), sx, sy);
+        continue;
+      }
+
+      projected.push({ id: loc.id, sx, sy, visible: true });
       const color = TYPE_COLORS[loc.type] ?? "#6b7280";
       const isSel = loc.id === selected;
-      const depth = 0.4 + 0.6 * (p.z / radius);
       const dotR = (isSel ? 7 : 4) * Math.min(zoom, 2.5);
 
-      // Glow
       const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, dotR * 4);
       glow.addColorStop(0, color + (isSel ? "60" : "25"));
       glow.addColorStop(1, "transparent");
       ctx.fillStyle = glow;
       ctx.fillRect(sx - dotR * 4, sy - dotR * 4, dotR * 8, dotR * 8);
 
-      // Pulse for special zones
       if (loc.type === "anomalyZone" || loc.type === "contaminationZone") {
         const phase = (Date.now() / 1000) % 3;
         const pr = dotR + phase * 5;
@@ -351,7 +440,6 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
         ctx.stroke();
       }
 
-      // Dot
       ctx.beginPath();
       ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
       ctx.fillStyle = color;
@@ -359,7 +447,6 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Selection ring
       if (isSel) {
         ctx.beginPath();
         ctx.arc(sx, sy, dotR + 5, 0, Math.PI * 2);
@@ -370,17 +457,20 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
         ctx.globalAlpha = 1;
       }
 
-      // Label
-      const labelSz = Math.max(10, Math.min(14, zoom * 6));
-      ctx.font = `bold ${isSel ? labelSz + 2 : labelSz}px monospace`;
-      ctx.textAlign = "center";
-      ctx.fillStyle = isSel ? color : `rgba(220, 230, 225, ${depth})`;
-      ctx.fillText(loc.name, sx, sy - dotR - 8);
+      // Labels only when zoomed in or selected
+      if (isSel || zoom >= 2) {
+        const labelSz = Math.max(10, Math.min(14, zoom * 6));
+        ctx.font = `bold ${isSel ? labelSz + 2 : labelSz}px monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = isSel ? color : `rgba(220, 230, 225, ${depth})`;
+        ctx.fillText(loc.name, sx, sy - dotR - 8);
 
-      if (zoom >= 1.5) {
-        ctx.font = `${Math.max(8, zoom * 4)}px monospace`;
-        ctx.fillStyle = `rgba(120, 140, 135, ${depth * 0.7})`;
-        ctx.fillText(TYPE_LABELS[loc.type] ?? loc.type, sx, sy - dotR - 8 - labelSz);
+        if (zoom >= 2.5 || isSel) {
+          ctx.font = `${Math.max(8, zoom * 4)}px monospace`;
+          ctx.fillStyle = `rgba(120, 140, 135, ${depth * 0.7})`;
+          ctx.fillText(TYPE_LABELS[loc.type] ?? loc.type, sx, sy - dotR - 8 - labelSz);
+        }
       }
     }
 
@@ -392,7 +482,7 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
     }
 
     animRef.current = requestAnimationFrame(draw);
-  }, [filtered, selected]);
+  }, [filtered, selected, clearance]);
 
   useEffect(() => {
     animRef.current = requestAnimationFrame(draw);
@@ -439,6 +529,7 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
 
     let closest: string | null = null;
     let closestDist = Infinity;
+    let closestCluster: string[] | null = null;
     const hitR = 20 * Math.min(zoomRef.current, 2);
 
     for (const p of projectedRef.current) {
@@ -447,7 +538,21 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
       if (dist < hitR && dist < closestDist) {
         closest = p.id;
         closestDist = dist;
+        closestCluster = p.isCluster ? (p.memberIds ?? null) : null;
       }
+    }
+
+    if (closestCluster && closestCluster.length > 0) {
+      const first = locations.find((l) => l.id === closestCluster![0]);
+      if (first) {
+        autoRotateRef.current = false;
+        targetRef.current = {
+          y: -degToRad(first.coordY),
+          x: degToRad(first.coordX),
+          zoom: Math.min(5, zoomRef.current * 1.8 + 0.5),
+        };
+      }
+      return;
     }
     selectLocation(closest);
   };
@@ -554,7 +659,37 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
         />
       </div>
 
-      <div className="w-72 border border-gray-800 rounded-lg p-4 overflow-y-auto shrink-0">
+      <div className="w-72 border border-gray-800 rounded-lg p-4 overflow-y-auto shrink-0 flex flex-col">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск локации…"
+          className="w-full mb-3 bg-gray-950 border border-gray-800 rounded px-3 py-2 font-mono text-xs text-gray-200 placeholder-gray-700 focus:outline-none focus:border-emerald-400"
+        />
+        <div className="font-mono text-[10px] text-gray-600 mb-2">
+          Видимо: {filtered.length} / {locations.length} (допуск L{clearance})
+        </div>
+
+        {!selectedLoc && (
+          <div className="space-y-1 flex-1 overflow-y-auto mb-3">
+            {filtered.slice(0, 40).map((loc) => (
+              <button
+                key={loc.id}
+                type="button"
+                onClick={() => selectLocation(loc.id)}
+                className="w-full text-left px-2 py-1.5 rounded font-mono text-xs text-gray-400 hover:bg-gray-900 hover:text-emerald-400"
+              >
+                {loc.name}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="font-mono text-[10px] text-gray-700 text-center py-4">
+                Нет доступных локаций
+              </p>
+            )}
+          </div>
+        )}
+
         {selectedLoc ? (
           <div className="animate-fade-in">
             <h2 className="font-mono text-sm text-emerald-400 mb-1">{selectedLoc.name}</h2>
@@ -594,7 +729,7 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
                       href={`/events/${ev.id}`}
                       className="block text-xs font-mono text-gray-400 hover:text-emerald-400 transition-colors"
                     >
-                      {ev.date ?? "████"} — {ev.name}
+                      {ev.date ? `${ev.date} — ` : ""}{ev.name}
                     </Link>
                   ))}
                 </div>
@@ -617,33 +752,9 @@ export function WorldMap({ locations }: { locations: LocationData[] }) {
             </div>
           </div>
         ) : (
-          <div className="text-center mt-8">
-            <div className="text-gray-600 font-mono text-xs mb-2">
-              Выберите объект на глобусе
-            </div>
-            <div className="space-y-2 mt-6">
-              {filtered.map((loc) => (
-                <button
-                  key={loc.id}
-                  onClick={() => selectLocation(loc.id)}
-                  className="w-full text-left px-3 py-2 rounded hover:bg-gray-900 transition-colors group"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: TYPE_COLORS[loc.type] ?? "#6b7280" }}
-                    />
-                    <span className="font-mono text-xs text-gray-400 group-hover:text-emerald-400">
-                      {loc.name}
-                    </span>
-                  </div>
-                  <div className="font-mono text-[10px] text-gray-700 ml-4">
-                    {TYPE_LABELS[loc.type] ?? loc.type}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="font-mono text-[10px] text-gray-700 text-center mt-2">
+            Клик по точке или списку · кластеры приближают область
+          </p>
         )}
       </div>
     </div>

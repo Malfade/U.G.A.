@@ -18,13 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
-  if (!status) {
-    return (
-      <span className="inline-block px-2 py-0.5 text-xs rounded border bg-gray-800/50 text-gray-500 border-gray-700">
-        ██████
-      </span>
-    );
-  }
+  if (!status) return null;
   const color =
     STATUS_COLORS[status.toLowerCase()] ??
     "bg-gray-800/50 text-gray-300 border-gray-600";
